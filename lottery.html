@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no"/>
+    <title>jQuery九宫格大转盘抽奖</title>
+    <style>
+        #header{height: 55px;background-color:rgb(252,194,8);border-radius:8px 8px 0px 0px; display: flex}
+        #frirst1{position: relative;top:8px;width: 50%;margin-left: 15px; height:47px;line-height: 47px; color:rgb(252,129,8);font-size:15px;text-align: center; background-color:rgb(255,243,206);border-radius:8px 8px 0px 0px;}
+        #frirst2{position: relative;top:8px;width: 50%;margin-right: 15px; height:47px;line-height: 47px;color:rgb(0,0,0); font-size:15px;text-align: center; border-radius:8px 8px 0px 0px;}
+        #contain{background-color:rgb(255,243,206);border-radius:0px 0px 8px 8px }
+        #used {color:rgb(252,129,8);text-align: center;font-size: 13px;height: 30px;vertical-align:center;line-height: 40px}
+        #lottery{height:calc(100% - 16px + 20px);background-color:rgb(255,243,206); width: 100%;border-radius: 8px; padding-bottom: 20px;}
+        #lottery table{border-color:rgb(255,243,206);width: 100%;height:calc(100% - 16px);border-bottom: 0px solid rgb(255,243,206);border-right: 0px solid rgb(255,243,206);border-left:0px solid rgb(255,243,206)}
+        #lottery table td{position:relative; text-align:center;color:rgb(102,102,102);font-size: 14px;background-color: white;border-radius: 3px;height:30vw; }
+        #lottery table td img{position: absolute;left: calc(50% - 17.5px); top: 30%; width:35px;height:35px;}
+        #lottery table td div{position: absolute;bottom: 15%;width: 100%}
+        #btnClick{position: absolute;top: 0px; width: 100%;height: 100%; background:url(images/choujian-btn@2x.png) no-repeat;background-size: 100% 100%; -webkit-tap-highlight-color:rgba(0,0,0,0);}
+        /*#lottery table td a{display: block;background-size: cover; width: 100%;height: 100%; text-decoration:none;background:url(images/choujian-btn@2x.png) no-repeat center;}*/
+        /*#lottery table td a:hover{background-image:url(images/choujian-btn@2x.png);}*/
+        #lottery table td.active .mask{display:block;}
+        .mask{
+            width:100%;
+            height:100%;
+            position:absolute;
+            left:0;
+            top:0;
+            /*background:url(images/mask.png) no-repeat;*/
+            background-color: rgba(252,211,4,0.5);
+            display:none;
+        }
+    </style>
+</head>
+<body class="keBody">
+
+<!--效果html开始-->
+<div id="header">
+    <div id="frirst1" ></div>
+    <div id="frirst2" ></div>
+</div>
+<div id="contain">
+<div id="used"></div>
+  <div id="lottery">
+    <table border="0" cellpadding="0" cellspacing="8">
+        <tr>
+            <td class="lottery-unit lottery-unit-0">
+                <img src="images/hongbao@2x.png">
+                <div class="money-0"></div><div class="mask"></div></td>
+            <td class="lottery-unit lottery-unit-1"><img src="images/yuanbao@2x.png"><div class="money-1"></div><div class="mask"></div></td>
+            <td class="lottery-unit lottery-unit-2"><img src="images/hongbao@2x.png"><div class="money-2"></div><div class="mask"></div></td>
+        </tr>
+        <tr>
+            <td class="lottery-unit lottery-unit-7"><img src="images/qianbao03@2x.png"><div class="money-7"></div><div class="mask"></div></td>
+            <td>
+<!--                <a href="#"></a>-->
+                <div id="btnClick"></div>
+            </td>
+            <td class="lottery-unit lottery-unit-3"><img src="images/qianbao02@2x.png"><div class="money-3"></div><div class="mask"></div></td>
+        </tr>
+        <tr>
+            <td class="lottery-unit lottery-unit-6"><img src="images/hongbao@2x.png"><div class="money-6"></div><div class="mask"></div></td>
+            <td class="lottery-unit lottery-unit-5"><img src="images/jinbi@2x.png"><div class="money-5"></div><div class="mask"></div></td>
+            <td class="lottery-unit lottery-unit-4"><img src="images/hongbao@2x.png"><div class="money-4"></div><div class="mask"></div></td>
+        </tr>
+    </table>
+   </div>
+</div>
+
+
+<script src="https://code.jquery.com/jquery-latest.js"></script>
+<script type="text/javascript">
+    var turnPrizesArr = [];
+    var turntableId = 0;
+    var getPrizerUser = {};
+    var lottery={
+        index:-1,    //当前转动到哪个位置，起点位置
+        count:0,    //总共有多少个位置
+        timer:0,    //setTimeout的ID，用clearTimeout清除
+        speed:20,    //初始转动速度
+        times:0,    //转动次数
+        cycle:50,    //转动基本次数：即至少需要转动多少次再进入抽奖环节
+        prize:0,    //中奖位置
+        init:function(id){
+            if ($("#"+id).find(".lottery-unit").length>0) {
+                $lottery = $("#"+id);
+                $units = $lottery.find("td");
+                //$units.height((window.screen.width-48)/3);
+                this.obj = $lottery;
+                this.count = $units.length;
+                $lottery.find(".lottery-unit-"+this.index).addClass("active");
+            };
+        },
+        getPrizeTitle:function() {
+        var geturl="/artificer/app/integral/queryTurntableList";
+        $.ajax({
+            url:geturl,
+            type:"POST",
+            dataType:"json",
+            beforeSend: function (XMLHttpRequest) {
+                XMLHttpRequest.setRequestHeader("token", getQueryString(window.location.href));
+            },
+            async:false,
+            success:function(data){
+                console.log(data);
+
+                 if(data.code==0) {
+                     turnPrizesArr = data.data;
+                     $("#frirst1").html(data.data[0].turntableName)
+                     $("#frirst2").html(data.data[1].turntableName)
+                     $("#used").html("每次需要"+turnPrizesArr[0].needIntegral+"积分");
+                     turntableId = data.data[0].turntableId;
+                     $lottery = $("#lottery");
+                     for(var i=0;i<turnPrizesArr[0].detailList.length;i++){
+                         $lottery.find(".money-"+i).html('现金'+turnPrizesArr[0].detailList[i].amount);
+                     }
+                 }
+            }/*function结束*/
+        });/*ajax结束*/
+    },
+        roll:function(){
+            var index = this.index;
+            var count = this.count;
+            var lottery = this.obj;
+            $(lottery).find(".lottery-unit-"+index).removeClass("active");
+            index += 1;
+            if (index>count-1) {
+                index = 0;
+            };
+            $(lottery).find(".lottery-unit-"+index).addClass("active");
+            this.index=index;
+            return false;
+        },
+        stop:function(index){
+            console.log("中奖后的位置"+(Number(getPrizerUser.sort)-1)+'中奖金额'+getPrizerUser.amount);
+            var lottery = this.obj;
+            setTimeout(()=>{
+            	$(lottery).find(".lottery-unit").removeClass("active");
+            	console.log(getPrizerUser);
+	            appGetPrizer.getLotteryResult(JSON.stringify(getPrizerUser));
+            },500) 
+            return false;
+        }
+    };
+     function getPrizer() {
+         var geturl="/artificer/app/integral/lottery";
+         $.ajax({
+             url:geturl,
+             type:"POST",
+             contentType: 'application/json',
+             data:JSON.stringify({"turntableId":turntableId}),
+
+             dataType:"json",
+             beforeSend: function (XMLHttpRequest) {
+                 XMLHttpRequest.setRequestHeader("token",getQueryString(window.location.href));
+             },
+             async:false,
+             success:function(data){
+                 console.log(data);
+                 if(data.code==0) {
+                     lottery.speed=100;
+                     getPrizerUser = data.data;
+                     roll();    //转圈过程不响应click事件，会将click置为false
+                     click=true; //一次抽奖完成后，设置click为true，可继续抽奖
+                 }else if(data.code==500){
+                     appGetPrizer.noAvailableIntegral(data.msg);
+                 }
+             }/*function结束*/
+         });/*ajax结束*/
+     };
+
+    function roll(){
+        lottery.times += 1;
+       lottery.roll();//转动过程调用的是lottery的roll方法，这里是第一次调用初始化
+        if (lottery.times > lottery.cycle+10 && lottery.prize==lottery.index+1) {
+            clearTimeout(lottery.timer);
+            lottery.prize=-1;
+            lottery.times=0;
+             lottery.stop();
+            // alert('恭喜您！获得'+getPrizerUser.amount+"元");
+            click=false;
+        }else{
+            if (lottery.times<lottery.cycle) {
+                lottery.speed -= 10;
+            }else if(lottery.times==lottery.cycle) {
+                 lottery.prize = getPrizerUser.sort;
+            }else{
+                if (lottery.times > lottery.cycle+10 && ((lottery.prize==0 && lottery.index==7) || lottery.prize==lottery.index+1)) {
+                    lottery.speed += 110;
+                }else{
+                    lottery.speed += 20;
+                }
+            }
+            if (lottery.speed<40) {
+                lottery.speed=40;
+            };
+            //console.log(lottery.times+'^^^^^^'+lottery.speed+'^^^^^^^'+lottery.prize);
+            lottery.timer = setTimeout(roll,lottery.speed);//循环调用
+        }
+        return false;
+    }
+    //解析获取地址参数
+    function getQueryString(name) {  //name为传入参数
+        var url=window.location .href;
+        var aa=url.indexOf("=");
+        if (aa == -1)
+            return "";
+        url=url.substring(aa+1);
+        return url;
+    }
+
+    var click=false;
+
+    window.onload=function(){
+      console.log('接受参数'+getQueryString(window.location.href));
+        lottery.init('lottery');
+         lottery.getPrizeTitle();
+        $("#btnClick").click(function(){
+            if (click) {//click控制一次抽奖过程中不能重复点击抽奖按钮，后面的点击不响应
+                return false;
+            }else{
+                getPrizer();
+                return false;
+            }
+        });
+        $("#frirst2").on("click", function () {
+            $("#lottery").find(".lottery-unit-"+lottery.index).removeClass("active");
+            turntableId = turnPrizesArr[1].turntableId;
+            $(this).css({"background": "rgb(255,243,206)","color":"rgb(252,129,8)"});
+            $("#frirst1").css({"background": "rgba(0,0,0,0)","color":"rgb(0,0,0)"});
+            $("#used").html("每次需要"+turnPrizesArr[1].needIntegral+"积分");
+            $lottery = $("#lottery");
+            for(var i=0;i<turnPrizesArr[1].detailList.length;i++){
+                $lottery.find(".money-"+i).html('现金'+turnPrizesArr[1].detailList[i].amount);
+            }
+        });
+
+        $("#frirst1").on("click", function () {
+            $("#lottery").find(".lottery-unit-"+lottery.index).removeClass("active");
+            turntableId = turnPrizesArr[0].turntableId;
+            $(this).css({"background": "rgb(255,243,206)","color":"rgb(252,129,8)"});
+            $("#frirst2").css({"background": "rgba(0,0,0,0)","color":"rgb(0,0,0)"});
+            $("#used").html("每次需要"+turnPrizesArr[0].needIntegral+"积分");
+            $lottery = $("#lottery");
+            for(var i=0;i<turnPrizesArr[0].detailList.length;i++){
+                $lottery.find(".money-"+i).html('现金'+turnPrizesArr[0].detailList[i].amount);
+            }
+        });
+    };
+</script>
+<!--效果html结束-->
+
+</body>
+</html>
